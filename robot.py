@@ -10,7 +10,7 @@ MotionCommand = namedtuple('MotionCommand', 'v omega')
 Landmark = namedtuple('Landmark', 'id x y')
 
 class Sensor:
-    def __init__(self, range=100, error_params=ErrorParamMeasurement(1.0,0.02)):
+    def __init__(self, range=100, error_params=ErrorParamMeasurement(0.0,0.0)):
         self.range = range
         self.ep = error_params
 
@@ -158,12 +158,13 @@ class Robot:
         r_meas, phi_meas = self.sensor.measure_with_noise(self.pose, world_map)
         return r_meas, phi_meas
 
-    def world_t_sensor(self, r_meas, phi_meas):
+    @classmethod
+    def world_t_sensor(self, pose, r_meas, phi_meas):
         x = []
         y = []
         for r, phi in zip(r_meas, phi_meas):
-            x.append(self.pose.x + r * cos(phi + self.pose.theta))
-            y.append(self.pose.y + r * sin(phi + self.pose.theta))
+            x.append(pose.x + r * cos(phi + pose.theta))
+            y.append(pose.y + r * sin(phi + pose.theta))
         return x, y
 
 def plot_motion_model_distribution():
@@ -216,7 +217,7 @@ def test_map():
         robot.move(cmd.v, cmd.omega)
         robot_model.move(cmd.v, cmd.omega)
         r, phi = robot.get_measurements(world_map)
-        x, y = robot_model.world_t_sensor(r, phi)
+        x, y = robot_model.world_t_sensor(robot_model.pose, r, phi)
         robot_model.lm_map.addLandmarks(x, y)
 
     # for _ in range(100):
