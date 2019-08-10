@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 from math import sqrt
 from copy import copy
+from collections import namedtuple
 
 class LandmarkMap:
     def __init__(self, x=[], y=[], lm_id=[], color='C5', marker='o'):

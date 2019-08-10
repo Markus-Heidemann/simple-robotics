@@ -8,7 +8,6 @@ from LandmarkMap import LandmarkMap
 ErrorParamsMovement = namedtuple('ErrorParamsMovement', 'a0 a1 a2 a3 a4 a5')
 ErrorParamMeasurement = namedtuple('ErrorParamMeasurement', 'sigma_r sigma_phi')
 MotionCommand = namedtuple('MotionCommand', 'v omega')
-Landmark = namedtuple('Landmark', 'id x y')
 
 class Sensor:
     def __init__(self, range=100, error_params=ErrorParamMeasurement(0.0,0.0)):
@@ -83,6 +82,7 @@ class Robot:
         if self.plot_path:
             plt.plot(x, y, color=self.plot_color)
 
+    # Calculates exact new pose given a motion command
     # Positive 'v' --> forward movement
     # Positive 'omega' --> counter-clockwise rotation
     def calculateNewPose(self, pose, v=0.0, omega=0.0, t=1):
