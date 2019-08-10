@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from copy import copy
 from collections import namedtuple
 from numpy.random import normal
+from LandmarkMap import LandmarkMap
 
 ErrorParamsMovement = namedtuple('ErrorParamsMovement', 'a0 a1 a2 a3 a4 a5')
 ErrorParamMeasurement = namedtuple('ErrorParamMeasurement', 'sigma_r sigma_phi')
@@ -30,49 +31,6 @@ class Sensor:
         r_measurements = [r + normal(0.0, self.ep.sigma_r) for r in r_measurements]
         phi_measurements = [phi + normal(0.0, self.ep.sigma_phi) for phi in phi_measurements]
         return r_measurements, phi_measurements
-
-
-class LandmarkMap:
-    def __init__(self, x=[], y=[], lm_id=[], color='C5', marker='o'):
-        self.plot_color = color
-        self.plot_marker = marker
-        assert(len(x) == len(y))
-        self.x = x
-        self.y = y
-        if len(lm_id) == 0:
-            self.lm_id = list(range(len(x)))
-        else:
-            assert(len(x) == len(lm_id))
-            self.lm_id = lm_id
-
-    def __str__(self):
-        ret_str = ""
-        for x,y,lm_id in zip(self.x, self.y, self.lm_id):
-            ret_str += "ID: {0:>3},\tX: {1:>8},\tY: {2:>8}\n".format(lm_id, x, y)
-        return ret_str
-
-    def plot(self):
-        plt.scatter(self.x, self.y, color=self.plot_color, marker=self.plot_marker)
-
-    def addLandmarks(self, x_list, y_list):
-        assert(len(x_list) == len(y_list))
-        for x, y in zip(x_list, y_list):
-            self.x.append(x)
-            self.y.append(y)
-            if len(self.lm_id) > 0:
-                self.lm_id.append(self.lm_id[-1] + 1)
-            else:
-                self.lm_id.append(0)
-
-    def getMeasuredLandmarks(self, pose, range):
-        x_in_range = []
-        y_in_range = []
-        for x, y in zip(self.x, self.y):
-            r = sqrt((x - pose.x) * (x - pose.x) + (y - pose.y) * (y - pose.y))
-            if r <= range:
-                x_in_range.append(copy(x))
-                y_in_range.append(copy(y))
-        return x_in_range, y_in_range
 
 class Pose:
     def __init__(self, x=0.0, y=0.0, theta=0.0):
@@ -167,70 +125,8 @@ class Robot:
             y.append(pose.y + r * sin(phi + pose.theta))
         return x, y
 
-def plot_motion_model_distribution():
-    motion_cmd = [MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi),
-                MotionCommand(1, 0.25*pi)]
-
-    ep = ErrorParamsMovement(0.0,0.0,0.0,0.0,0.05,0.05)
-
-    # Plot paths of 100 noisy robots
-    for _ in range(100):
-        robot_noise = Robot(0, 0, 0, False, error_params=ep, color='C4')
-        for command in motion_cmd:
-            robot_noise.move(command.v, command.omega)
-        robot_noise.plot()
-
-    # Plot motion of ideal motion model
-    robot = Robot(0, 0, 0, False, color='C0')
-    for command in motion_cmd:
-        robot.move(command.v, command.omega)
-    robot.plot()
-
-    plt.show(block=True)
-
-def test_map():
-    landmarks_x = [0.0, 100.0, 100.0, 0.0, 75.0]
-    landmarks_y = [0.0, 0.0, 100.0, 100.0, 50.0]
-    landmarks_id = [0, 1, 2, 3, 4]
-
-    world_map = LandmarkMap(landmarks_x, landmarks_y, landmarks_id)
-    world_map.plot()
-
-    motion_cmd = [MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi),
-            MotionCommand(20, 0.25*pi)]
-
-    # ep = ErrorParamsMovement(0.0,0.0,0.0,0.0,0.0,0.0)
-    ep = ErrorParamsMovement(0.005,0.005,0.0,0.0,0.00005,0.00005)
-    robot = Robot(0, 0, 0, False, color='C0', error_params=ep)
-    robot_model = Robot(0, 0, 0, False, color='C6')
-    for cmd in motion_cmd:
-        robot.move(cmd.v, cmd.omega)
-        robot_model.move(cmd.v, cmd.omega)
-        r, phi = robot.get_measurements(world_map)
-        x, y = robot_model.world_t_sensor(robot_model.pose, r, phi)
-        robot_model.lm_map.addLandmarks(x, y)
-
-    # for _ in range(100):
-    #     robot.get_measurements(world_map)
-
-    robot_model.plot()
-    robot.plot()
-
-    plt.show(block=True)
-
 def main():
-    test_map()
-    # plot_motion_model_distribution()
+    pass
 
 if __name__ == "__main__":
     main()
