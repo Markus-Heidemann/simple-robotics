@@ -6,3 +6,5 @@ import Robot
 import LandmarkMap
 import Simulator
 import Localizer
+import SlamGraph
+import VelocityMotionModel

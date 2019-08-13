@@ -4,18 +4,26 @@ from copy import copy
 from collections import namedtuple
 from numpy.random import normal
 from LandmarkMap import LandmarkMap
+from VelocityMotionModel import ErrorParamsMovement
+from VelocityMotionModel import VelocityMotionModel as VMM
 
-ErrorParamsMovement = namedtuple('ErrorParamsMovement', 'a0 a1 a2 a3 a4 a5')
-ErrorParamMeasurement = namedtuple('ErrorParamMeasurement', 'sigma_r sigma_phi')
+ErrorParamMeasurement = namedtuple(
+    'ErrorParamMeasurement', 'sigma_r sigma_phi')
+ErrorParamMeasurement.__new__.__defaults__ = (
+    0.0,) * len(ErrorParamMeasurement._fields)
+
 MotionCommand = namedtuple('MotionCommand', 'v omega')
+MotionCommand.__new__.__defaults__ = (0.0,) * len(MotionCommand._fields)
+
 
 class Sensor:
-    def __init__(self, range=100, error_params=ErrorParamMeasurement(0.0,0.0)):
+    def __init__(self, range=100, error_params=ErrorParamMeasurement()):
         self.range = range
         self.ep = error_params
 
     def measure(self, pose, world_map):
-        x_measurements, y_measurements = world_map.getMeasuredLandmarks(pose, self.range)
+        x_measurements, y_measurements = world_map.getMeasuredLandmarks(
+            pose, self.range)
         r_measurements = []
         phi_measurements = []
         for x, y in zip(x_measurements, y_measurements):
@@ -27,9 +35,12 @@ class Sensor:
 
     def measure_with_noise(self, pose, world_map):
         r_measurements, phi_measurements = self.measure(pose, world_map)
-        r_measurements = [r + normal(0.0, self.ep.sigma_r) for r in r_measurements]
-        phi_measurements = [phi + normal(0.0, self.ep.sigma_phi) for phi in phi_measurements]
+        r_measurements = [r + normal(0.0, self.ep.sigma_r)
+                          for r in r_measurements]
+        phi_measurements = [phi + normal(0.0, self.ep.sigma_phi)
+                            for phi in phi_measurements]
         return r_measurements, phi_measurements
+
 
 class Pose:
     def __init__(self, x=0.0, y=0.0, theta=0.0):
@@ -50,19 +61,20 @@ class Pose:
             self.theta += delta
         return self
 
+
 class Robot:
     def __init__(self,
-                x=0.0,
-                y=0.0,
-                theta=0.0,
-                verbose=False,
-                error_params=ErrorParamsMovement(0.0,0.0,0.0,0.0,.0,0.0),
-                color='C0',
-                plot_path=False):
+                 x=0.0,
+                 y=0.0,
+                 theta=0.0,
+                 verbose=False,
+                 error_params=ErrorParamsMovement(),
+                 color='C0',
+                 plot_path=False):
         self.pose = Pose(x, y, theta)
         self.pose_hist = [self.pose]
         self.verbose = verbose
-        self.ep = error_params
+        self.vmm = VMM(error_params)
         self.plot_color = color
         self.plot_path = plot_path
         self.sensor = Sensor()
@@ -82,35 +94,12 @@ class Robot:
         if self.plot_path:
             plt.plot(x, y, color=self.plot_color)
 
-    # Calculates exact new pose given a motion command
-    # Positive 'v' --> forward movement
-    # Positive 'omega' --> counter-clockwise rotation
-    def calculateNewPose(self, pose, v=0.0, omega=0.0, t=1):
-        if omega == 0.0:
-            pose.y += v * t * sin(pose.theta)
-            pose.x += v * t * cos(pose.theta)
-        else:
-            n = v / omega
-            pose.x += n * (-sin(pose.theta) + sin(pose.theta + omega * t))
-            pose.y += n * (cos(pose.theta) - cos(pose.theta + omega * t))
-            pose.theta += omega * t
-        return pose
-
     def move(self, v=0.0, omega=0.0, t=1):
-        sigma_v = self.ep.a0 * v * v + self.ep.a1 * omega * omega
-        sigma_omega = self.ep.a2 * v * v + self.ep.a3 * omega * omega
-        sigma_theta = self.ep.a4 * v * v + self.ep.a5 * omega * omega
-
-        v += normal(0.0, sigma_v)
-        omega += normal(0.0, sigma_omega)
-
-        pose = self.calculateNewPose(self.pose, v, omega, t)
-        pose.theta += normal(0.0, sigma_theta) * t
-
-        self.pose = pose.round()
+        self.pose = self.vmm.calculateNewPoseWithNoise(self.pose, v, omega, t)
         self.pose_hist.append(copy(self.pose))
 
-        if self.verbose: print(self)
+        if self.verbose:
+            print(self)
 
     def get_measurements(self, world_map):
         r_meas, phi_meas = self.sensor.measure_with_noise(self.pose, world_map)
@@ -125,8 +114,10 @@ class Robot:
             y.append(pose.y + r * sin(phi + pose.theta))
         return x, y
 
+
 def main():
     pass
+
 
 if __name__ == "__main__":
     main()
