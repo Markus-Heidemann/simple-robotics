@@ -27,6 +27,12 @@ class TestSlamGraph(unittest.TestCase):
                            [2, 1, 0]])
         assert_allclose(mu_0_t, self.SlamGraph.mu_0_t)
 
+    def test_faulty_initialization(self):
+        # [v, theta]
+        motion_cmds = np.array([[1, 0, 0]])
+        with self.assertRaises(AssertionError):
+            self.SlamGraph.initialize(motion_cmds)
+
 
 if __name__ == '__main__':
     unittest.main()

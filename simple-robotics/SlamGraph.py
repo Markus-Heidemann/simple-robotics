@@ -9,6 +9,7 @@ class SlamGraph:
         self.vmm = VMM()
 
     def initialize(self, motion_commands):
+        assert(motion_commands.shape[1] == 2)
         for [v, omega] in motion_commands:
             prev_pose = Pose(self.mu_0_t[-1][0],
                              self.mu_0_t[-1][1], self.mu_0_t[-1][2])
