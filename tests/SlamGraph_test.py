@@ -38,20 +38,18 @@ class TestSlamGraph(unittest.TestCase):
         x2 = [2.2, 1.9]
         z = [1.3, -0.4]
         e_true = np.array([0.135804, 0.014684])
-        epsilon = 1e-5
 
         e, A, B = self.SlamGraph.linearize_pose_landmark_constraint(x1, x2, z)
         assert_allclose(e, e_true, rtol=1e-4)
 
         delta = 1e-6
-        scalar = 1 / (2*delta)
 
+        # test for x1
         ANumeric = np.zeros((2,3))
         for d in range(3):
             curX = x1
             curX[d] += delta
             err, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(curX, x2, z)
-            # curX = x1
             curX[d] -= 2 * delta
             err_tmp, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(curX, x2, z)
             err -= err_tmp
@@ -66,7 +64,6 @@ class TestSlamGraph(unittest.TestCase):
             curX = x2
             curX[d] += delta
             err, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(x1, curX, z)
-            # curX = x2
             curX[d] -= 2 * delta
             err_tmp, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(x1, curX, z)
             err -= err_tmp
