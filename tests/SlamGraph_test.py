@@ -13,11 +13,11 @@ class TestSlamGraph(unittest.TestCase):
 
     def test_inititalize(self):
         # [v, theta]
-        motion_cmds = np.array([[1, 0],
-                                [0, 0.5*pi],
-                                [1, 0],
-                                [0, -0.5*pi],
-                                [1, 0]])
+        motion_cmds = np.array([[1, 0, 1],
+                                [0, 0.5*pi, 1],
+                                [1, 0, 1],
+                                [0, -0.5*pi, 1],
+                                [1, 0, 1]])
         self.SlamGraph.initialize(motion_cmds)
         mu_0_t = np.array([[0, 0, 0],
                            [1, 0, 0],
@@ -29,10 +29,51 @@ class TestSlamGraph(unittest.TestCase):
 
     def test_faulty_initialization(self):
         # [v, theta]
-        motion_cmds = np.array([[1, 0, 0]])
+        motion_cmds = np.array([[1, 0]])
         with self.assertRaises(AssertionError):
             self.SlamGraph.initialize(motion_cmds)
 
+    def test_linearize_pose_landmark_constraint(self):
+        x1 = [1.1, 0.9, 1]
+        x2 = [2.2, 1.9]
+        z = [1.3, -0.4]
+        e_true = np.array([0.135804, 0.014684])
+        epsilon = 1e-5
+
+        e, A, B = self.SlamGraph.linearize_pose_landmark_constraint(x1, x2, z)
+        assert_allclose(e, e_true, rtol=1e-4)
+
+        delta = 1e-6
+        scalar = 1 / (2*delta)
+
+        ANumeric = np.zeros((2,3))
+        for d in range(3):
+            curX = x1
+            curX[d] += delta
+            err, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(curX, x2, z)
+            # curX = x1
+            curX[d] -= 2 * delta
+            err_tmp, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(curX, x2, z)
+            err -= err_tmp
+
+            ANumeric[:, d] = err / (2 * delta)
+
+        assert_allclose(ANumeric, A, rtol=1e-4)
+
+        # test for x2
+        BNumeric = np.zeros((2,2))
+        for d in range(2):
+            curX = x2
+            curX[d] += delta
+            err, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(x1, curX, z)
+            # curX = x2
+            curX[d] -= 2 * delta
+            err_tmp, _, _ = self.SlamGraph.linearize_pose_landmark_constraint(x1, curX, z)
+            err -= err_tmp
+
+            BNumeric[:, d] = err / (2 * delta)
+
+        assert_allclose(BNumeric, B, rtol=1e-4)
 
 if __name__ == '__main__':
     unittest.main()
