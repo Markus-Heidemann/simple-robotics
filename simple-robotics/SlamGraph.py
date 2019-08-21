@@ -71,6 +71,58 @@ class SlamGraph:
 
         return e, A, B
 
+    def linearize_pose_pose_constraint(self, x1, x2, z):
+        A = np.ndarray(shape=(3, 3))
+        A[0][0] = -cos(x1[2]) * cos(z[2]) + sin(x1[2]) * sin(z[2])
+        A[0][1] = -sin(x1[2]) * cos(z[2]) - cos(x1[2]) * sin(z[2])
+        A[0][2] = (-sin(x1[2]) * cos(z[2]) - cos(x1[2]) * sin(z[2])) * (x2[0] - x1[0]) + \
+                (cos(x1[2]) * cos(z[2]) - sin(x1[2]) * sin(z[2])) * (x2[1] - x1[1])
+        A[1][0] = cos(x1[2]) * sin(z[2]) + sin(x1[2]) * cos(z[2])
+        A[1][1] = sin(x1[2]) * sin(z[2]) - cos(x1[2]) * cos(z[2])
+        A[1][2] = (sin(z[2]) * sin(x1[2]) - cos(z[2]) * cos(x1[2])) * (x2[0] - x1[0]) + \
+                (-sin(z[2]) * cos(x1[2]) - cos(z[2]) * sin(x1[2])) * (x2[1] - x1[1])
+        A[2][0] = 0
+        A[2][1] = 0
+        A[2][2] = -1
+
+        B = np.ndarray(shape=(3, 3))
+        B[0][0] = cos(x1[2]) * cos(z[2]) - sin(x1[2]) * sin(z[2])
+        B[0][1] = sin(x1[2]) * cos(z[2]) + cos(x1[2]) * sin(z[2])
+        B[0][2] = 0
+        B[1][0] = -cos(x1[2]) * sin(z[2]) - sin(x1[2]) * cos(z[2])
+        B[1][1] = -sin(x1[2]) * sin(z[2]) + cos(x1[2]) * cos(z[2])
+        B[1][2] = 0
+        B[2][0] = 0
+        B[2][1] = 0
+        B[2][2] = 1
+
+        R_i_j = np.ndarray(shape=(2, 2))
+        R_i = np.ndarray(shape=(2, 2))
+        R_i_j[0][0] = cos(z[2])
+        R_i_j[0][1] = -sin(z[2])
+        R_i_j[1][0] = sin(z[2])
+        R_i_j[1][1] = cos(z[2])
+        R_i[0][0] = cos(x1[2])
+        R_i[0][1] = -sin(x1[2])
+        R_i[1][0] = sin(x1[2])
+        R_i[1][1] = cos(x1[2])
+
+        t_i_j = np.ndarray(shape=(2,1))
+        t_i = np.ndarray(shape=(2,1))
+        t_j = np.ndarray(shape=(2,1))
+        t_i_j[0] = z[0]
+        t_i_j[1] = z[1]
+        t_i[0] = x1[0]
+        t_i[1] = x1[1]
+        t_j[0] = x2[0]
+        t_j[1] = x2[1]
+
+        e_i_j_01 = R_i_j.transpose().dot(R_i.transpose().dot(t_j - t_i) - t_i_j)
+        e_i_j_2 = x2[2] - x1[2] - z[2]
+        e = np.array([e_i_j_01[0][0], e_i_j_01[1][0], e_i_j_2])
+
+        return e, A, B
+
 if __name__ == "__main__":
     motion_cmds = np.array([[1, 0],
                             [0, 0.5*pi],
