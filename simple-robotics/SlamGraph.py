@@ -1,57 +1,47 @@
 import numpy as np
 from VelocityMotionModel import VelocityMotionModel as VMM
-from Robot import Pose
-from scipy.sparse import bsr_matrix
 from math import inf, pi, sin, cos
 
 
 class SlamGraph:
-    def __init__(self):
-        self.mu_0_t = np.array([[0.0, 0.0, 0.0]])
+    def __init__(self, init_size_H_b=100):
         self.vmm = VMM()
+        self.pose_idx = 1
+        self.init_size_H_b = init_size_H_b
+        self.H = np.zeros(shape=(SlamGraph.init_size_H_b * 3, SlamGraph.init_size_H_b * 3))
+        self.b = np.zeros(shape=(SlamGraph.init_size_H_b * 3))
 
-    def initialize(self, motion_commands):
-        assert(motion_commands.shape[1] == 3)
-        for v, omega, t in motion_commands:
-            prev_pose = Pose(self.mu_0_t[-1][0],
-                             self.mu_0_t[-1][1], self.mu_0_t[-1][2])
-            pose = self.vmm.calculateNewPose(prev_pose, v, omega, t)
-            self.mu_0_t = np.append(self.mu_0_t, np.array(
-                [[pose.x, pose.y, pose.theta]]), axis=0)
 
-    def linearize(self, motion_commands):
-        assert(motion_commands.shape[1] == 3)
-        num_cmds = motion_commands.shape[0]
+    def add_pose_landmark_edge(self, x, l, i, j, z, Omega_ij=np.identity(3)):
+        e, A, B = self.linearize_pose_landmark_constraint(x, l, z)
 
-        info_mat = np.ndarray(shape=(num_cmds * 3, num_cmds * 3))
-        xi = np.array(shape=(num_cmds * 3))
+        b_i = e.transpose().dot(Omega_ij).dot(A)
+        b_j = e.transpose().dot(Omega_ij).dot(B)
+        self.b[i*3 : i*3 + 2] = b_i
+        self.b[j*3 : j*3 + 2] = b_j
 
-        info_mat[0][0] = inf
-        info_mat[1][1] = inf
-        info_mat[2][2] = inf
+        Hii = A.transpose().dot(Omega_ij).dot(A)
+        Hij = A.transpose().dot(Omega_ij).dot(B)
+        Hji = B.transpose().dot(Omega_ij).dot(A)
+        Hjj = B.transpose().dot(Omega_ij).dot(B)
 
-        for i, cmd in enumerate(motion_commands):
-            v, omega, t = cmd[0]
-            mu_x, mu_y, mu_theta = self.mu_0_t[i-1]
+        self.H[i*3 : i*3 + 2, i*3 : i*3 + 2] = Hii
+        self.H[i*3 : i*3 + 2, j*3 : j*3 + 2] = Hij
+        self.H[j*3 : j*3 + 2, i*3 : i*3 + 2] = Hji
+        self.H[j*3 : j*3 + 2, j*3 : j*3 + 2] = Hjj
 
-            x_hat_x = mu_x + ((v/omega) * (-sin(mu_theta) + sin(mu_theta + omega * t)))
-            x_hat_y = mu_y + ((v/omega) * (cos(mu_theta) - cos(mu_theta + omega * t)))
-            x_hat_theta = mu_theta + (omega * t)
+        self.pose_idx += 1
 
-            x_hat = np.array([x_hat_x, x_hat_y, x_hat_theta])
 
-            G_t_0_2 = (v/omega) * (-cos(mu_theta) + cos(mu_theta + omega * t))
-            G_t_1_2 = (v/omega) * (-sin(mu_theta) + sin(mu_theta + omega * t))
+    def add_pose_pose_edge(self, x1, x2, z=np.array([0, 0, 0]), Omega_ij=np.identity(3)):
+        i = self.pose_idx - 1
+        j = self.pose_idx
 
-            G_t = np.ndarray(shape=(3,3))
-            G_t[0][0] = 1
-            G_t[1][1] = 1
-            G_t[2][2] = 1
-            G_t[0][2] = G_t_0_2
-            G_t[1][2] = G_t_1_2
+        self.add_pose_landmark_edge(x1, x2, i, j, z, Omega_ij)
+
 
     def linearize_pose_landmark_constraint(self, x, l, z):
-        A = np.ndarray(shape=(2, 3))
+        A = np.zeros(shape=(3, 3))
         A[0][0] = -cos(x[2])
         A[0][1] = -sin(x[2])
         A[0][2] = (-1) * (l[0] - x[0]) * sin(x[2]) + (l[1] - x[1]) * cos(x[2])
@@ -59,7 +49,7 @@ class SlamGraph:
         A[1][1] = -cos(x[2])
         A[1][2] = -(l[0] - x[0]) * cos(x[2]) - (l[1] - x[1]) * sin(x[2])
 
-        B = np.ndarray(shape=(2, 2))
+        B = np.zeros(shape=(3, 3))
         B[0][0] = cos(x[2])
         B[0][1] = sin(x[2])
         B[1][0] = -sin(x[2])
@@ -67,9 +57,10 @@ class SlamGraph:
 
         e_0 = (l[0] - x[0]) * cos(x[2]) + (l[1] - x[1]) * sin(x[2]) - z[0]
         e_1 = -(l[0] - x[0]) * sin(x[2]) + (l[1] - x[1]) * cos(x[2]) - z[1]
-        e = np.array([e_0, e_1])
+        e = np.array([e_0, e_1, 0])
 
         return e, A, B
+
 
     def linearize_pose_pose_constraint(self, x1, x2, z):
         A = np.ndarray(shape=(3, 3))
@@ -123,6 +114,7 @@ class SlamGraph:
 
         return e, A, B
 
+
 if __name__ == "__main__":
     motion_cmds = np.array([[1, 0],
                             [0, 0.5*pi],
@@ -130,4 +122,3 @@ if __name__ == "__main__":
                             [0, -0.5*pi],
                             [1, 0]])
     slam_graph = SlamGraph()
-    slam_graph.linearize(motion_cmds)

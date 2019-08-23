@@ -11,33 +11,11 @@ class TestSlamGraph(unittest.TestCase):
     def setUp(self):
         self.SlamGraph = SlamGraph()
 
-    def test_inititalize(self):
-        # [v, theta]
-        motion_cmds = np.array([[1, 0, 1],
-                                [0, 0.5*pi, 1],
-                                [1, 0, 1],
-                                [0, -0.5*pi, 1],
-                                [1, 0, 1]])
-        self.SlamGraph.initialize(motion_cmds)
-        mu_0_t = np.array([[0, 0, 0],
-                           [1, 0, 0],
-                           [1, 0, 0.5*pi],
-                           [1, 1, 0.5*pi],
-                           [1, 1, 0],
-                           [2, 1, 0]])
-        assert_allclose(mu_0_t, self.SlamGraph.mu_0_t)
-
-    def test_faulty_initialization(self):
-        # [v, theta]
-        motion_cmds = np.array([[1, 0]])
-        with self.assertRaises(AssertionError):
-            self.SlamGraph.initialize(motion_cmds)
-
     def test_linearize_pose_landmark_constraint(self):
         x1 = [1.1, 0.9, 1]
         x2 = [2.2, 1.9]
         z = [1.3, -0.4]
-        e_true = np.array([0.135804, 0.014684])
+        e_true = np.array([0.135804, 0.014684, 0])
         delta = 1e-6
         epsilon = 1e-4
 
@@ -45,7 +23,7 @@ class TestSlamGraph(unittest.TestCase):
         assert_allclose(e, e_true, rtol=epsilon)
 
         # test for x1
-        ANumeric = np.zeros((2,3))
+        ANumeric = np.zeros((3,3))
         for d in range(3):
             curX = x1
             curX[d] += delta
@@ -59,7 +37,7 @@ class TestSlamGraph(unittest.TestCase):
         assert_allclose(ANumeric, A, rtol=epsilon)
 
         # test for x2
-        BNumeric = np.zeros((2,2))
+        BNumeric = np.zeros((3,3))
         for d in range(2):
             curX = x2
             curX[d] += delta
